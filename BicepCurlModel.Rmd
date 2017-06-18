@@ -1,0 +1,85 @@
+---
+title: "Practical Machine Learning Project"
+author: "Jacob Lowey"
+date: "June 17, 2017"
+output:
+    html_document: default
+    html_notebook: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(cache=TRUE)
+```
+
+## Introduction
+In this document, we'll be attempting to create a model that can accurately predict the class of exercise performed based on the information gathered in the experiment. The original data can be round at http://groupware.les.inf.puc-rio.br/har.
+
+## Setup
+
+First we'll read the data in. Reviewing each variable, there are a lot of variables that are empty for most of hte observations. Thinking critically about the variable we are trying to predict, the type of exercise performed, there are only a couple of variables in the original data set that would obviously tell you something about how the exercise was performed. There are a couple of different options and you could certainly argue for different ones, but the accuracy found seemed to confirm m intuition. 
+
+### Variables Chosen
+classe: Variable we are attempting to predict
+
+accel_arm__y, accel_arm_z: The classes are all about a couple ways to get bicep curls wrong. None of the wrong ways involved the arms moving horizontally, but the arm would move up/down and out/in based on the class. Acceleration would measure these changes
+
+accel_belt_z: Class E is specifically thrusting the hip out while curling, this particular variable would be very useful in predicting that.
+
+accel_dumbbell_y, accel_dumbbell_z, pitch_dumbbell: Similar to the arm variable, the dumbbell would move up/down, and in/out. In addition, the pitch, yaw, and tilt would also be an indicator of the class based on what they were classifying on.
+
+accel_forearm_y, accel_forearm_z: Same reason as the arm. 
+
+### Cross Validation
+
+We'll be using the createDataPartition function ini the caret package. We'll just be splitting the data into two chunks, a training set that comprises 80% of the data, and the testing set that comprises 20%.  
+```{r ref.label="setupdata", echo=FALSE}
+```
+
+## Creating the model
+After testing various models, which you can see the results of in the appendix, the random forests method of training presented the best accuracy. The confusionMatrix for the model will be shown.
+```{r ref.label="trainingmodelrandomforest", echo = FALSE}
+```
+
+##Conclusion
+As you can see in the confusion matrix, we have a fairly accurate predictor. I would expect that out of the training sample we would have at least a 90% hit rate which does not seem that bad for the fairly low complexity model created. Below is it's predictions for the testing set provided by the instructors
+```{r ref.label="prediction"}
+```
+
+## Appendix
+
+```{r setupdata, eval = FALSE}
+library(caret)
+training <- read.csv("pml-training.csv")
+actualtraining <- data.frame()
+actualtraining <- data.frame(training$classe, training$accel_arm_y, training$accel_arm_z, training$accel_belt_z, training$accel_dumbbell_y, training$accel_dumbbell_z, training$accel_forearm_y, training$accel_forearm_z, training$pitch_dumbbell)
+names(actualtraining) <- gsub("training.",'',names(actualtraining))
+set.seed(26568)
+inData<- createDataPartition(actualtraining$classe, p=.8, list = FALSE)
+trainingdata <- actualtraining[inData,]
+testingdata<- actualtraining[-inData,]
+testing <- read.csv("pml-testing.csv")
+actualtesting <- data.frame(testing$accel_arm_y, testing$accel_arm_z, testing$accel_belt_z, testing$accel_dumbbell_y, testing$accel_dumbbell_z, testing$accel_forearm_y, testing$accel_forearm_z, testing$pitch_dumbbell)
+names(actualtesting) <- gsub("testing.",'',names(actualtesting))
+```
+
+```{r trainingmodelrandomforest, eval = FALSE}
+set.seed(457)
+mod1 <- train(classe~., data=trainingdata, method="rf")
+
+confusionMatrix(predict(mod1,testingdata), testingdata$classe)
+```
+
+```{r othertrainingmodels, eval = FALSE}
+set.seed(457)
+mod2<- train(classe~., data=actualtraining, method="rpart")
+mod3 <- train(classe~., data=actualtraining, method="lda")
+mod4<- train(classe~., data=actualtraining, method="nb")
+confusionMatrix(predict(mod2,testingdata),testingdata$classe)
+confusionMatrix(predict(mod3,testingdata),testingdata$classe)
+confusionMatrix(predict(mod4,testingdata),testingdata$classe)
+```
+```{r prediction, eval=FALSE}
+predict(mod1, actualtesting)
+```
+
